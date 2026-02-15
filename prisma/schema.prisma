@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SessionStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  WALLET
+}
+
+enum UserRole {
+  OWNER
+  STAFF
+  KITCHEN
+}
+
+model Restaurant {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  phone      String?
+  address    String?
+  createdAt  DateTime @default(now())
+
+  tables     Table[]
+  sessions   TableSession[]
+  categories MenuCategory[]
+  items      MenuItem[]
+  orders     Order[]
+  users      User[]
+}
+
+model Table {
+  id           String   @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  number       Int
+  code         String   @unique
+  active       Boolean  @default(true)
+
+  sessions     TableSession[]
+}
+
+model TableSession {
+  id           String   @id @default(cuid())
+  restaurantId String
+  tableId      String
+
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  table        Table      @relation(fields: [tableId], references: [id])
+
+  status       SessionStatus @default(OPEN)
+  openedAt     DateTime      @default(now())
+  closedAt     DateTime?
+
+  orders       Order[]
+
+  @@index([restaurantId, tableId])
+}
+
+model MenuCategory {
+  id           String @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  name         String
+  orderIndex   Int    @default(0)
+
+  items        MenuItem[]
+
+  @@index([restaurantId])
+}
+
+model MenuItem {
+  id           String @id @default(cuid())
+  restaurantId String
+  categoryId   String
+
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  category     MenuCategory @relation(fields: [categoryId], references: [id])
+
+  name         String
+  description  String?
+  price        Decimal
+  imageUrl     String?
+  active       Boolean @default(true)
+
+  orderItems   OrderItem[]
+
+  @@index([restaurantId, categoryId])
+}
+
+model Order {
+  id              String @id @default(cuid())
+  restaurantId    String
+  sessionId       String?
+
+  restaurant      Restaurant   @relation(fields: [restaurantId], references: [id])
+  session         TableSession? @relation(fields: [sessionId], references: [id])
+
+  orderType       OrderType
+  status          OrderStatus   @default(PENDING)
+  paymentMethod   PaymentMethod
+
+  customerName    String?
+  customerPhone   String?
+  deliveryAddress String?
+
+  totalAmount     Decimal
+  createdAt       DateTime @default(now())
+
+  items           OrderItem[]
+
+  @@index([restaurantId, createdAt])
+  @@index([sessionId])
+}
+
+model OrderItem {
+  id            String @id @default(cuid())
+  orderId       String
+  menuItemId    String
+
+  order         Order    @relation(fields: [orderId], references: [id])
+  menuItem      MenuItem @relation(fields: [menuItemId], references: [id])
+
+  nameSnapshot  String
+  priceSnapshot Decimal
+  quantity      Int
+  subtotal      Decimal
+
+  @@index([orderId])
+}
+
+model User {
+  id           String @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  email        String @unique
+  passwordHash String
+  role         UserRole @default(OWNER)
+  active       Boolean @default(true)
+}

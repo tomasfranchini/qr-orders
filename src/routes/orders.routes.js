@@ -102,17 +102,39 @@ router.get("/:id", async (req, res) => {
 router.patch("/:id/status", async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status: nextStatus } = req.body;
 
     const allowed = ["PENDING", "PREPARING", "READY", "COMPLETED", "CANCELLED"];
-    if (!allowed.includes(status)) return res.status(400).json({ error: "Invalid status" });
+    if (!allowed.includes(nextStatus)) return res.status(400).json({ error: "Invalid status" });
 
-    const existing = await prisma.order.findUnique({ where: { id } });
-    if (!existing) return res.status(404).json({ error: "Order not found" });
+    const order = await prisma.order.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    const transitions = {
+      PENDING: ["PREPARING", "CANCELLED"],
+      PREPARING: ["READY", "CANCELLED"],
+      READY: ["COMPLETED"],
+      COMPLETED: [],
+      CANCELLED: [],
+    };
+
+    const canGo = transitions[order.status]?.includes(nextStatus);
+    if (!canGo) {
+      return res.status(400).json({
+        error: "Invalid transition",
+        from: order.status,
+        to: nextStatus,
+        allowedNext: transitions[order.status] || [],
+      });
+    }
 
     const updated = await prisma.order.update({
       where: { id },
-      data: { status },
+      data: { status: nextStatus },
       select: { id: true, status: true },
     });
 
@@ -122,5 +144,6 @@ router.patch("/:id/status", async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 module.exports = router;

@@ -6,7 +6,8 @@
     "doc": "docs"
   },
   "scripts": {
-    "dev": "node src/server.js"
+    "dev": "node src/server.js",
+    "seed": "node prisma/seed.js"
   },
   "keywords": [],
   "author": "",

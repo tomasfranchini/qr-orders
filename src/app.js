@@ -5,6 +5,7 @@ const restaurantsRoutes = require("./routes/restaurants.routes");
 const tablesRoutes = require("./routes/tables.routes");
 const ordersRoutes = require("./routes/orders.routes");
 const kitchenRoutes = require("./routes/kitchen.routes");
+const sessionRoutes = require("./routes/session.routes");
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use("/restaurants", restaurantsRoutes);
 app.use("/tables", tablesRoutes);
 app.use("/orders", ordersRoutes);
 app.use("/kitchen", kitchenRoutes);
+app.use("/sessions", sessionRoutes);
 
 module.exports = { app };
 

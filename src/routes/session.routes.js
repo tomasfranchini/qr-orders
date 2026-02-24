@@ -22,17 +22,61 @@ router.patch("/:id/close", async (req, res) => {
       return res.status(400).json({ error: `Session is not OPEN (current: ${session.status})` });
     }
 
-    // Regla: no cerrar si hay pedidos activos
+    // Si hay pedidos READY, se permite cerrar pero se envía una advertencia
+    const blockingOrders = session.orders.filter((o) =>
+  ["PENDING", "PREPARING"].includes(o.status)
+)
+
+if (blockingOrders.length > 0) {
+  return res.status(400).json({
+    error: "Cannot close session: there are orders still in progress",
+    blockingOrders: blockingOrders.map((o) => ({ id: o.id, status: o.status })),
+  });
+}
+
+// forzar cierre incluso con pedidos activos (opcional, según reglas de negocio)
+router.patch("/:id/force-close", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const session = await prisma.tableSession.findUnique({
+      where: { id },
+      include: {
+        table: true,
+        restaurant: true,
+        orders: true, // no hace falta items para force close
+      },
+    });
+
+    if (!session) return res.status(404).json({ error: "Session not found" });
+    if (session.status !== "OPEN") {
+      return res.status(400).json({ error: `Session is not OPEN (current: ${session.status})` });
+    }
+
     const activeOrders = session.orders.filter((o) =>
       ["PENDING", "PREPARING", "READY"].includes(o.status)
     );
 
-    if (activeOrders.length > 0) {
-      return res.status(400).json({
-        error: "Cannot close session: there are active orders",
-        activeOrders: activeOrders.map((o) => ({ id: o.id, status: o.status })),
-      });
-    }
+    const updated = await prisma.tableSession.update({
+      where: { id },
+      data: { status: "CLOSED", closedAt: new Date() },
+      select: { id: true, status: true, openedAt: true, closedAt: true },
+    });
+
+    return res.json({
+      warning: activeOrders.length
+        ? "Session was force-closed with active orders"
+        : "Session force-closed (no active orders)",
+      session: updated,
+      restaurant: { name: session.restaurant.name, slug: session.restaurant.slug },
+      table: { number: session.table.number, code: session.table.code },
+      activeOrders: activeOrders.map((o) => ({ id: o.id, status: o.status })),
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
     // Total = suma de subtotales de items de todas las órdenes NO canceladas
     const total = session.orders
@@ -100,3 +144,6 @@ router.get("/:id/summary", async (req, res) => {
 });
 
 module.exports = router;
+
+cmlubm9qz0001ujt4ym9080jq
+Invoke-RestMethod -Method Patch -Uri "http://localhost:3001/sessions/cmlubm9qz0001ujt4ym9080jq/force-close"

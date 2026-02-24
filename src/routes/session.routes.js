@@ -145,5 +145,4 @@ router.get("/:id/summary", async (req, res) => {
 
 module.exports = router;
 
-cmlubm9qz0001ujt4ym9080jq
-Invoke-RestMethod -Method Patch -Uri "http://localhost:3001/sessions/cmlubm9qz0001ujt4ym9080jq/force-close"
+
